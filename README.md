@@ -1,1 +1,157 @@
-# xhafer
+# 
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Tracker">
+<title>Daily Tracker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #eeece8;
+    --text: #1a1a18; --text2: #6b6b67;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
+    --green: #1D9E75; --green-light: #E1F5EE; --green-mid: #9FE1CB;
+    --green-dark: #085041; --green-border: #5DCAA5;
+    --radius-md: 8px; --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg2: #252522; --bg3: #2e2e2b;
+      --text: #f0ede8; --text2: #9a9892;
+      --border: rgba(255,255,255,0.12); --border2: rgba(255,255,255,0.22);
+      --green-light: #04342C; --green-dark: #9FE1CB; --green-border: #0F6E56;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; display: flex; justify-content: center; padding: 1.5rem 1rem 3rem; }
+  .app { width: 100%; max-width: 480px; }
+  .app-title { font-size: 13px; font-weight: 500; color: var(--text2); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 1.25rem; }
+  .date-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 3px; }
+  .date-nav button { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-md); padding: 5px 12px; cursor: pointer; color: var(--text2); font-size: 16px; }
+  .date-nav button:active { transform: scale(0.96); }
+  .date-label { font-size: 20px; font-weight: 500; color: var(--text); flex: 1; }
+  .sub-label { font-size: 13px; color: var(--text2); margin-bottom: 1rem; }
+  .progress-bar-bg { background: var(--bg2); border-radius: 99px; height: 8px; overflow: hidden; border: 0.5px solid var(--border); margin-bottom: 6px; }
+  .progress-bar-fill { height: 100%; border-radius: 99px; background: var(--green); transition: width 0.4s ease; }
+  .progress-text { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 1.25rem; }
+  .tasks { display: flex; flex-direction: column; gap: 8px; }
+  .task-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+  .task-card:active { transform: scale(0.985); }
+  .task-card.done { border-color: var(--green-border); background: var(--green-light); }
+  .task-card.done .task-name { color: var(--green-dark); }
+  .task-card.done .task-sub { color: var(--green); }
+  .check-circle { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .task-card.done .check-circle { background: var(--green); border-color: var(--green); }
+  .check-mark { display: none; width: 14px; height: 14px; }
+  .task-card.done .check-mark { display: block; }
+  .task-icon { font-size: 22px; flex-shrink: 0; width: 28px; text-align: center; }
+  .task-name { font-size: 15px; font-weight: 500; color: var(--text); }
+  .task-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .celebration { text-align: center; padding: 1.5rem; margin-top: 1rem; background: var(--bg); border-radius: var(--radius-lg); border: 0.5px solid var(--border); display: none; }
+  .celebration.show { display: block; }
+  .celebration-title { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .celebration-sub { font-size: 14px; color: var(--text2); }
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 1.5rem; }
+  .stat-box { background: var(--bg); border-radius: var(--radius-md); padding: 14px 12px; text-align: center; border: 0.5px solid var(--border); }
+  .stat-num { font-size: 26px; font-weight: 500; }
+  .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
+  .reset-btn { display: block; width: 100%; margin-top: 2rem; background: none; border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 10px; font-size: 13px; color: var(--text2); cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="app-title">Daily Tracker</div>
+  <div class="date-nav">
+    <button id="prev-btn">&#8249;</button>
+    <span class="date-label" id="date-label"></span>
+    <button id="next-btn">&#8250;</button>
+  </div>
+  <div class="sub-label" id="day-sub"></div>
+  <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="progress-text"><span id="prog-text"></span><span id="prog-pct"></span></div>
+  <div class="tasks" id="tasks-container"></div>
+  <div class="celebration" id="celebration">
+    <div class="celebration-title">Perfekt dag! 🎉</div>
+    <div class="celebration-sub">Du har klaret alle habits i dag. Fortsæt sådan.</div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num" id="stat-streak">0</div><div class="stat-lbl">dag streak</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-today">0</div><div class="stat-lbl">done i dag</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-best">0</div><div class="stat-lbl">bedste streak</div></div>
+  </div>
+  <button class="reset-btn" id="reset-btn">Nulstil denne dag</button>
+</div>
+<script>
+const TASKS = [
+  { id: 'fajr',    icon: '🌙', name: 'Fajr',       sub: 'Morgenbøn' },
+  { id: 'dhuhr',   icon: '☀️', name: 'Dhuhr',      sub: 'Middagsbøn' },
+  { id: 'asr',     icon: '🌤', name: 'Asr',        sub: 'Eftermiddagsbøn' },
+  { id: 'maghrib', icon: '🌇', name: 'Maghrib',    sub: 'Solnedgangsbøn' },
+  { id: 'isha',    icon: '🌃', name: 'Isha',       sub: 'Nattebøn' },
+  { id: 'motion',  icon: '🏃', name: 'Motion',     sub: 'Bevægelse eller træning' },
+  { id: 'read',    icon: '📖', name: 'Læs',        sub: '30 min — en rigtig bog' },
+  { id: 'earn',    icon: '💼', name: 'Tjen penge', sub: 'Tjent noget i dag' },
+  { id: 'study',   icon: '🎓', name: 'Studér',     sub: '45 min fokuseret studie' },
+  { id: 'sleep',   icon: '🛌', name: 'Søvn',       sub: 'I seng 22:00, op 07:00' },
+];
+const TOTAL = TASKS.length;
+let viewDate = new Date(); viewDate.setHours(0,0,0,0);
+function dateKey(d) { return d.toISOString().slice(0,10); }
+function load(k) { try { return JSON.parse(localStorage.getItem('adhd_'+k)||'{}'); } catch { return {}; } }
+function save(k,v) { try { localStorage.setItem('adhd_'+k, JSON.stringify(v)); } catch {} }
+function getStreak() {
+  let s=0, d=new Date(); d.setHours(0,0,0,0);
+  const today=dateKey(d);
+  for(let i=0;i<365;i++){
+    const k=dateKey(d);
+    if(load(k) && TASKS.filter(t=>load(k)[t.id]).length===TOTAL){s++;d.setDate(d.getDate()-1);}
+    else if(k===today){d.setDate(d.getDate()-1);}
+    else break;
+  }
+  return s;
+}
+function getBest(){try{return parseInt(localStorage.getItem('adhd_best')||'0');}catch{return 0;}}
+function setBest(n){if(n>getBest())try{localStorage.setItem('adhd_best',n);}catch{}}
+const DAYS=['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
+const MONTHS=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+function fmtDate(d){return DAYS[d.getDay()]+' '+d.getDate()+'. '+MONTHS[d.getMonth()];}
+function fmtSub(d){
+  const t=new Date();t.setHours(0,0,0,0);
+  const diff=Math.round((d-t)/86400000);
+  if(diff===0)return 'I dag';if(diff===-1)return 'I går';
+  return diff<0?Math.abs(diff)+' dage siden':'Om '+diff+' dage';
+}
+function render(){
+  const key=dateKey(viewDate), data=load(key);
+  const done=TASKS.filter(t=>data[t.id]).length, pct=Math.round(done/TOTAL*100);
+  document.getElementById('date-label').textContent=fmtDate(viewDate);
+  document.getElementById('day-sub').textContent=fmtSub(viewDate);
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-text').textContent=done+' of '+TOTAL+' done';
+  document.getElementById('prog-pct').textContent=pct+'%';
+  const c=document.getElementById('tasks-container'); c.innerHTML='';
+  TASKS.forEach(task=>{
+    const isDone=!!data[task.id], card=document.createElement('div');
+    card.className='task-card'+(isDone?' done':'');
+    card.innerHTML=`<div class="check-circle"><svg class="check-mark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 6,11 12,3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="task-icon">${task.icon}</div><div class="task-info"><div class="task-name">${task.name}</div><div class="task-sub">${task.sub}</div></div>`;
+    card.addEventListener('click',()=>{const d2=load(key);d2[task.id]=!d2[task.id];save(key,d2);render();});
+    c.appendChild(card);
+  });
+  document.getElementById('celebration').className='celebration'+(done===TOTAL?' show':'');
+  const streak=getStreak(); setBest(streak);
+  document.getElementById('stat-streak').textContent=streak;
+  document.getElementById('stat-today').textContent=done;
+  document.getElementById('stat-best').textContent=getBest();
+}
+document.getElementById('prev-btn').addEventListener('click',()=>{viewDate.setDate(viewDate.getDate()-1);render();});
+document.getElementById('next-btn').addEventListener('click',()=>{
+  const t=new Date();t.setHours(0,0,0,0);t.setDate(t.getDate()+1);
+  if(viewDate<t){viewDate.setDate(viewDate.getDate()+1);render();}
+});
+document.getElementById('reset-btn').addEventListener('click',()=>{if(confirm('Nulstil denne dag?')){save(dateKey(viewDate),{});render();}});
+render();
+</script>
+</body>
+</html>
