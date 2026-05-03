@@ -99,9 +99,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="notif-allow-btn" id="notif-allow-btn">Tillad</button>
   </div>
   <div class="prayer-strip">
-    <div class="prayer-strip-title">Bøntider — Masjid Al Imam, København</div>
+    <div class="prayer-strip-title">Bedetider — Masjid Al Iman, København</div>
     <div class="prayer-row" id="prayer-row">
-      <div class="pt-cell"><div class="pt-name">Indlæser</div><div class="pt-time">...</div></div>
+      <div class="pt-cell"><div class="pt-name">Henter...</div><div class="pt-time">–</div></div>
     </div>
   </div>
   <div class="date-nav">
@@ -120,19 +120,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <button class="reset-btn" id="reset-btn">Nulstil denne dag</button>
 </div>
+
 <script>
-const ALL_TASKS=[
-  {id:'fajr',icon:'🌙',name:'Fajr',sub:'Morgenbøn',defaultOn:true},
-  {id:'dhuhr',icon:'☀️',name:'Dhuhr',sub:'Middagsbøn',defaultOn:true},
-  {id:'asr',icon:'🌤',name:'Asr',sub:'Eftermiddagsbøn',defaultOn:true},
-  {id:'maghrib',icon:'🌇',name:'Maghrib',sub:'Solnedgangsbøn',defaultOn:true},
-  {id:'isha',icon:'🌃',name:'Isha',sub:'Nattebøn',defaultOn:true},
-  {id:'motion',icon:'🏃',name:'Motion',sub:'Bevægelse eller træning',defaultOn:true},
-  {id:'read',icon:'📖',name:'Læs',sub:'30 min — en rigtig bog',defaultOn:true},
-  {id:'earn',icon:'💼',name:'Tjen penge',sub:'Tjent noget i dag',defaultOn:true},
-  {id:'study',icon:'🎓',name:'Studér',sub:'45 min fokuseret studie',defaultOn:true},
-  {id:'sleep',icon:'🛌',name:'Søvn',sub:'I seng 22:00, op 07:00',defaultOn:true},
+// ── MASJID AL IMAN GUID ──────────────────────────────────────────────
+const MASJID_GUID = '85966a2e-4c6d-48fa-9aa8-c29d1052e51c';
+
+const ALL_TASKS = [
+  {id:'fajr',    icon:'🌙', name:'Fajr',       sub:'Morgenbøn',               defaultOn:true},
+  {id:'dhuhr',   icon:'☀️', name:'Dhuhr',      sub:'Middagsbøn',              defaultOn:true},
+  {id:'asr',     icon:'🌤', name:'Asr',        sub:'Eftermiddagsbøn',         defaultOn:true},
+  {id:'maghrib', icon:'🌇', name:'Maghrib',    sub:'Solnedgangsbøn',          defaultOn:true},
+  {id:'isha',    icon:'🌃', name:'Isha',       sub:'Nattebøn',                defaultOn:true},
+  {id:'motion',  icon:'🏃', name:'Motion',     sub:'Bevægelse eller træning',  defaultOn:true},
+  {id:'read',    icon:'📖', name:'Læs',        sub:'30 min — en rigtig bog',   defaultOn:true},
+  {id:'earn',    icon:'💼', name:'Tjen penge', sub:'Tjent noget i dag',        defaultOn:true},
+  {id:'study',   icon:'🎓', name:'Studér',     sub:'45 min fokuseret studie',  defaultOn:true},
+  {id:'sleep',   icon:'🛌', name:'Søvn',       sub:'I seng 22:00, op 07:00',   defaultOn:true},
 ];
+
+// ── STORAGE ──────────────────────────────────────────────────────────
 function ls(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch{return null;}}
 function ss(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 function getEnabled(){const s=ls('en_tasks');if(s)return s;const d={};ALL_TASKS.forEach(t=>d[t.id]=t.defaultOn);return d;}
@@ -140,6 +146,8 @@ function saveEnabled(e){ss('en_tasks',e);}
 function getDayData(k){return ls('adhd_'+k)||{};}
 function saveDayData(k,v){ss('adhd_'+k,v);}
 function getActiveTasks(){const en=getEnabled();return ALL_TASKS.filter(t=>en[t.id]);}
+
+// ── DATE HELPERS ─────────────────────────────────────────────────────
 const DAYS=['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
 const MONTHS=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
 function dateKey(d){return d.toISOString().slice(0,10);}
@@ -150,6 +158,8 @@ function fmtSub(d){
   if(diff===0)return 'I dag';if(diff===-1)return 'I går';
   return diff<0?Math.abs(diff)+' dage siden':'Om '+diff+' dage';
 }
+
+// ── STREAK ───────────────────────────────────────────────────────────
 function getStreak(){
   let s=0,d=new Date();d.setHours(0,0,0,0);
   const tk=dateKey(d),tot=getActiveTasks().length;
@@ -163,120 +173,252 @@ function getStreak(){
 }
 function getBest(){return parseInt(ls('adhd_best')||'0');}
 function setBest(n){if(n>getBest())ss('adhd_best',n);}
-const toMins=s=>{const[h,m]=s.split(':').map(Number);return h*60+m;};
-let prayerTimes=null;
-async function fetchPrayerTimes(){
-  const now=new Date(),d=now.getDate(),m=now.getMonth()+1,y=now.getFullYear();
-  try{
-    const r=await fetch(`https://api.aladhan.com/v1/timingsByCity/${d}-${m}-${y}?city=Copenhagen&country=Denmark&method=3`);
-    const j=await r.json(),t=j.data.timings;
-    prayerTimes={fajr:t.Fajr.slice(0,5),dhuhr:t.Dhuhr.slice(0,5),asr:t.Asr.slice(0,5),maghrib:t.Maghrib.slice(0,5),isha:t.Isha.slice(0,5)};
-  }catch{
-    prayerTimes={fajr:'03:47',dhuhr:'13:16',asr:'17:22',maghrib:'21:12',isha:'22:58'};
+
+// ── PRAYER TIMES — MyMasjid API (Masjid Al Iman) ─────────────────────
+let prayerTimes = null;
+const toMins = s => { const [h,m]=s.split(':').map(Number); return h*60+m; };
+
+async function fetchPrayerTimes() {
+  // Check cache — only refetch if date has changed
+  const cached = ls('prayer_cache');
+  const today = dateKey(new Date());
+  if (cached && cached.date === today) {
+    prayerTimes = cached.times;
+    renderPrayers();
+    schedulePrayerNotifs();
+    return;
   }
-  renderPrayers();schedulePrayerNotifs();
-}
-function renderPrayers(){
-  if(!prayerTimes)return;
-  const prayers=[{name:'Fajr',time:prayerTimes.fajr},{name:'Dhuhr',time:prayerTimes.dhuhr},{name:'Asr',time:prayerTimes.asr},{name:'Maghrib',time:prayerTimes.maghrib},{name:'Isha',time:prayerTimes.isha}];
-  const now=new Date(),nowM=now.getHours()*60+now.getMinutes();
-  let activeIdx=-1;
-  for(let i=prayers.length-1;i>=0;i--){if(nowM>=toMins(prayers[i].time)){activeIdx=i;break;}}
-  document.getElementById('prayer-row').innerHTML=prayers.map((p,i)=>{
-    const past=nowM>toMins(p.time)&&i!==activeIdx,active=i===activeIdx;
-    return `<div class="pt-cell${active?' active':''}${past?' past':''}"><div class="pt-name">${p.name}</div><div class="pt-time">${p.time}</div></div>`;
-  }).join('');
-}
-function schedNotif(title,body,h,m){
-  if(!('Notification'in window)||Notification.permission!=='granted')return;
-  const now=new Date(),trigger=new Date();
-  trigger.setHours(h,m,0,0);
-  const delay=trigger-now;
-  if(delay>0)setTimeout(()=>new Notification(title,{body}),delay);
-}
-function schedulePrayerNotifs(){
-  if(!prayerTimes)return;
-  [{name:'Fajr',t:prayerTimes.fajr},{name:'Dhuhr',t:prayerTimes.dhuhr},{name:'Asr',t:prayerTimes.asr},{name:'Maghrib',t:prayerTimes.maghrib},{name:'Isha',t:prayerTimes.isha}].forEach(p=>{
-    let[h,m]=p.t.split(':').map(Number);m-=30;if(m<0){m+=60;h--;}
-    if(h>=0)schedNotif(`🕌 ${p.name} om 30 minutter`,`Bønnetid begynder kl. ${p.t} — gør dig klar.`,h,m);
-  });
-}
-function scheduleAllNotifs(){
-  schedNotif('📖 Tid til at læse','30 min med en rigtig bog.',21,0);
-  schedNotif('🛌 Snart sengetid','Læg telefonen fra dig — i seng kl. 22:00.',21,45);
-  schedNotif('🏃 Husk motion','Bevæg dig i dag.',17,0);
-  schedNotif('💼 Tjen penge','Husk dit mål om at tjene noget i dag.',9,0);
-  const day=new Date().getDay();
-  if(day!==2&&day!==4)schedNotif('🎓 Tid til at studere','45 min fokuseret studie.',10,0);
+
+  try {
+    const res = await fetch(
+      `https://time.my-masjid.com/api/TimingsInfoScreen/GetAllTimings?GuidId=${MASJID_GUID}`
+    );
+    const json = await res.json();
+    // MyMasjid returns salah array — find today's entry
+    const salah = json.data && json.data.salatDetails ? json.data.salatDetails : null;
+    if (salah) {
+      // Find today's timings
+      const todayNum = new Date().getDay(); // 0=Sun
+      const entry = salah.find(s => s.dayOfWeek === todayNum) || salah[0];
+      prayerTimes = {
+        fajr:    fmt(entry.fajr),
+        dhuhr:   fmt(entry.zuhr),
+        asr:     fmt(entry.asr),
+        maghrib: fmt(entry.maghrib),
+        isha:    fmt(entry.isha),
+      };
+    } else {
+      // Try alternate response structure
+      const t = json.data;
+      prayerTimes = {
+        fajr:    fmt(t.fajr || t.Fajr),
+        dhuhr:   fmt(t.zuhr || t.Dhuhr || t.Zuhr),
+        asr:     fmt(t.asr  || t.Asr),
+        maghrib: fmt(t.maghrib || t.Maghrib),
+        isha:    fmt(t.isha || t.Isha),
+      };
+    }
+    ss('prayer_cache', { date: today, times: prayerTimes });
+  } catch(e) {
+    // Fallback: Aladhan API for Copenhagen
+    try {
+      const d=new Date(),day=d.getDate(),m=d.getMonth()+1,y=d.getFullYear();
+      const r = await fetch(`https://api.aladhan.com/v1/timingsByCity/${day}-${m}-${y}?city=Copenhagen&country=Denmark&method=3`);
+      const j = await r.json(), t = j.data.timings;
+      prayerTimes = {fajr:t.Fajr.slice(0,5),dhuhr:t.Dhuhr.slice(0,5),asr:t.Asr.slice(0,5),maghrib:t.Maghrib.slice(0,5),isha:t.Isha.slice(0,5)};
+      ss('prayer_cache', { date: today, times: prayerTimes });
+    } catch {
+      prayerTimes = {fajr:'04:00',dhuhr:'13:15',asr:'17:20',maghrib:'21:10',isha:'23:00'};
+    }
+  }
+  renderPrayers();
   schedulePrayerNotifs();
 }
-document.getElementById('notif-allow-btn').addEventListener('click',()=>{
-  if(!('Notification'in window))return;
-  Notification.requestPermission().then(p=>{if(p==='granted'){document.getElementById('notif-bar').classList.remove('show');scheduleAllNotifs();}});
+
+function fmt(t) {
+  if (!t) return '--:--';
+  if (typeof t === 'string') return t.slice(0,5);
+  return '--:--';
+}
+
+function renderPrayers() {
+  if (!prayerTimes) return;
+  const prayers = [
+    {name:'Fajr',   time:prayerTimes.fajr},
+    {name:'Dhuhr',  time:prayerTimes.dhuhr},
+    {name:'Asr',    time:prayerTimes.asr},
+    {name:'Maghrib',time:prayerTimes.maghrib},
+    {name:'Isha',   time:prayerTimes.isha},
+  ];
+  const now=new Date(), nowM=now.getHours()*60+now.getMinutes();
+  let activeIdx=-1;
+  for(let i=prayers.length-1;i>=0;i--){
+    if(nowM>=toMins(prayers[i].time)){activeIdx=i;break;}
+  }
+  document.getElementById('prayer-row').innerHTML = prayers.map((p,i)=>{
+    const past = nowM > toMins(p.time) && i !== activeIdx;
+    const active = i === activeIdx;
+    return `<div class="pt-cell${active?' active':''}${past?' past':''}">
+      <div class="pt-name">${p.name}</div>
+      <div class="pt-time">${p.time}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────
+function schedNotif(title, body, h, m) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now=new Date(), trigger=new Date();
+  trigger.setHours(h, m, 0, 0);
+  const delay = trigger - now;
+  if (delay > 0) setTimeout(() => new Notification(title, {body}), delay);
+}
+
+function schedulePrayerNotifs() {
+  if (!prayerTimes) return;
+  [
+    {name:'Fajr',   t:prayerTimes.fajr},
+    {name:'Dhuhr',  t:prayerTimes.dhuhr},
+    {name:'Asr',    t:prayerTimes.asr},
+    {name:'Maghrib',t:prayerTimes.maghrib},
+    {name:'Isha',   t:prayerTimes.isha},
+  ].forEach(p => {
+    if (p.t === '--:--') return;
+    let [h,m] = p.t.split(':').map(Number);
+    m -= 30; if (m < 0) { m += 60; h--; }
+    if (h >= 0) schedNotif(`🕌 ${p.name} om 30 minutter`, `Bønnetid begynder kl. ${p.t} — gør dig klar.`, h, m);
+  });
+}
+
+function scheduleAllNotifs() {
+  schedNotif('📖 Tid til at læse', '30 min med en rigtig bog.', 21, 0);
+  schedNotif('🛌 Snart sengetid', 'Læg telefonen fra dig — i seng kl. 22:00.', 21, 45);
+  schedNotif('🏃 Husk motion', 'Bevæg dig i dag.', 17, 0);
+  schedNotif('💼 Tjen penge', 'Husk dit mål om at tjene noget i dag.', 9, 0);
+  const day = new Date().getDay();
+  if (day !== 2 && day !== 4) schedNotif('🎓 Tid til at studere', '45 min fokuseret studie.', 10, 0);
+  schedulePrayerNotifs();
+}
+
+document.getElementById('notif-allow-btn').addEventListener('click', () => {
+  if (!('Notification' in window)) return;
+  Notification.requestPermission().then(p => {
+    if (p === 'granted') {
+      document.getElementById('notif-bar').classList.remove('show');
+      scheduleAllNotifs();
+    }
+  });
 });
-let settingsOpen=false;
-document.getElementById('settings-toggle').addEventListener('click',()=>{
-  settingsOpen=!settingsOpen;
-  document.getElementById('settings-panel').classList.toggle('open',settingsOpen);
+
+// ── SETTINGS ─────────────────────────────────────────────────────────
+let settingsOpen = false;
+document.getElementById('settings-toggle').addEventListener('click', () => {
+  settingsOpen = !settingsOpen;
+  document.getElementById('settings-panel').classList.toggle('open', settingsOpen);
   renderSettings();
 });
-function renderSettings(){
-  const enabled=getEnabled(),c=document.getElementById('settings-items');
-  c.innerHTML='';
-  ALL_TASKS.forEach(task=>{
-    const on=!!enabled[task.id],item=document.createElement('div');
-    item.className='settings-item';
-    item.innerHTML=`<div class="s-left"><div class="s-icon">${task.icon}</div><div class="s-name">${task.name}</div></div><div class="toggle${on?' on':''}" data-id="${task.id}"><div class="toggle-thumb"></div></div>`;
-    item.querySelector('.toggle').addEventListener('click',()=>{const en=getEnabled();en[task.id]=!en[task.id];saveEnabled(en);renderSettings();render();});
+
+function renderSettings() {
+  const enabled = getEnabled(), c = document.getElementById('settings-items');
+  c.innerHTML = '';
+  ALL_TASKS.forEach(task => {
+    const on = !!enabled[task.id], item = document.createElement('div');
+    item.className = 'settings-item';
+    item.innerHTML = `<div class="s-left"><div class="s-icon">${task.icon}</div><div class="s-name">${task.name}</div></div>
+      <div class="toggle${on?' on':''}" data-id="${task.id}"><div class="toggle-thumb"></div></div>`;
+    item.querySelector('.toggle').addEventListener('click', () => {
+      const en = getEnabled(); en[task.id] = !en[task.id]; saveEnabled(en); renderSettings(); render();
+    });
     c.appendChild(item);
   });
 }
-function launchKonfetti(){
-  const canvas=document.getElementById('konfetti-canvas');
-  canvas.style.display='block';canvas.width=window.innerWidth;canvas.height=window.innerHeight;
-  const ctx=canvas.getContext('2d'),colors=['#1D9E75','#9FE1CB','#5DCAA5','#FAC775','#F0997B','#AFA9EC'];
-  const pieces=Array.from({length:130},()=>({x:Math.random()*canvas.width,y:-20-Math.random()*canvas.height*0.5,r:Math.random()*6+3,d:Math.random()*100,color:colors[Math.floor(Math.random()*colors.length)],tilt:Math.random()*10-10,ts:Math.random()*0.1+0.05}));
-  let angle=0,frame=0;
+
+// ── KONFETTI ──────────────────────────────────────────────────────────
+function launchKonfetti() {
+  const canvas = document.getElementById('konfetti-canvas');
+  canvas.style.display = 'block';
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#1D9E75','#9FE1CB','#5DCAA5','#FAC775','#F0997B','#AFA9EC'];
+  const pieces = Array.from({length:130}, () => ({
+    x:Math.random()*canvas.width, y:-20-Math.random()*canvas.height*0.5,
+    r:Math.random()*6+3, d:Math.random()*100,
+    color:colors[Math.floor(Math.random()*colors.length)],
+    tilt:Math.random()*10-10, ts:Math.random()*0.1+0.05
+  }));
+  let angle=0, frame=0;
   (function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);angle+=0.01;
-    pieces.forEach(p=>{p.tilt+=p.ts;p.y+=Math.cos(angle+p.d)+2;p.x+=Math.sin(angle)*1.5;ctx.beginPath();ctx.fillStyle=p.color;ctx.ellipse(p.x,p.y,p.r,p.r/2,p.tilt,0,Math.PI*2);ctx.fill();});
-    frame++;if(frame<220)requestAnimationFrame(draw);else canvas.style.display='none';
+    ctx.clearRect(0,0,canvas.width,canvas.height); angle+=0.01;
+    pieces.forEach(p=>{
+      p.tilt+=p.ts; p.y+=Math.cos(angle+p.d)+2; p.x+=Math.sin(angle)*1.5;
+      ctx.beginPath(); ctx.fillStyle=p.color;
+      ctx.ellipse(p.x,p.y,p.r,p.r/2,p.tilt,0,Math.PI*2); ctx.fill();
+    });
+    frame++; if(frame<220) requestAnimationFrame(draw); else canvas.style.display='none';
   })();
 }
-let viewDate=new Date();viewDate.setHours(0,0,0,0);
-let lastDone=-1;
-function render(){
-  const key=dateKey(viewDate),data=getDayData(key),active=getActiveTasks(),total=active.length;
-  const done=active.filter(t=>data[t.id]).length,pct=total>0?Math.round(done/total*100):0;
-  document.getElementById('date-label').textContent=fmtDate(viewDate);
-  document.getElementById('day-sub').textContent=fmtSub(viewDate);
-  document.getElementById('prog-fill').style.width=pct+'%';
-  document.getElementById('prog-text').textContent=done+' of '+total+' done';
-  document.getElementById('prog-pct').textContent=pct+'%';
-  const c=document.getElementById('tasks-container');c.innerHTML='';
-  active.forEach(task=>{
-    const isDone=!!data[task.id],card=document.createElement('div');
-    card.className='task-card'+(isDone?' done':'');
-    card.innerHTML=`<div class="check-circle"><svg class="check-mark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 6,11 12,3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="task-icon">${task.icon}</div><div class="task-info"><div class="task-name">${task.name}</div><div class="task-sub">${task.sub}</div></div>`;
-    card.addEventListener('click',()=>{const d2=getDayData(key);d2[task.id]=!d2[task.id];saveDayData(key,d2);render();});
+
+// ── MAIN RENDER ───────────────────────────────────────────────────────
+let viewDate = new Date(); viewDate.setHours(0,0,0,0);
+let lastDone = -1;
+
+function render() {
+  const key=dateKey(viewDate), data=getDayData(key);
+  const active=getActiveTasks(), total=active.length;
+  const done=active.filter(t=>data[t.id]).length;
+  const pct=total>0?Math.round(done/total*100):0;
+
+  document.getElementById('date-label').textContent = fmtDate(viewDate);
+  document.getElementById('day-sub').textContent = fmtSub(viewDate);
+  document.getElementById('prog-fill').style.width = pct+'%';
+  document.getElementById('prog-text').textContent = done+' of '+total+' done';
+  document.getElementById('prog-pct').textContent = pct+'%';
+
+  const c = document.getElementById('tasks-container'); c.innerHTML='';
+  active.forEach(task => {
+    const isDone=!!data[task.id], card=document.createElement('div');
+    card.className = 'task-card'+(isDone?' done':'');
+    card.innerHTML = `<div class="check-circle"><svg class="check-mark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 6,11 12,3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="task-icon">${task.icon}</div>
+      <div class="task-info"><div class="task-name">${task.name}</div><div class="task-sub">${task.sub}</div></div>`;
+    card.addEventListener('click', () => {
+      const d2=getDayData(key); d2[task.id]=!d2[task.id]; saveDayData(key,d2); render();
+    });
     c.appendChild(card);
   });
-  if(done===total&&total>0&&lastDone!==total)launchKonfetti();
-  lastDone=done;
-  const streak=getStreak();setBest(streak);
-  document.getElementById('stat-streak').textContent=streak;
-  document.getElementById('stat-today').textContent=done;
-  document.getElementById('stat-best').textContent=getBest();
+
+  if (done===total && total>0 && lastDone!==total) launchKonfetti();
+  lastDone = done;
+
+  const streak=getStreak(); setBest(streak);
+  document.getElementById('stat-streak').textContent = streak;
+  document.getElementById('stat-today').textContent = done;
+  document.getElementById('stat-best').textContent = getBest();
 }
-document.getElementById('prev-btn').addEventListener('click',()=>{viewDate.setDate(viewDate.getDate()-1);render();});
-document.getElementById('next-btn').addEventListener('click',()=>{const t=new Date();t.setHours(0,0,0,0);t.setDate(t.getDate()+1);if(viewDate<t){viewDate.setDate(viewDate.getDate()+1);render();}});
-document.getElementById('reset-btn').addEventListener('click',()=>{if(confirm('Nulstil denne dag?')){saveDayData(dateKey(viewDate),{});render();}});
-if('Notification'in window){
-  if(Notification.permission==='default')document.getElementById('notif-bar').classList.add('show');
-  else if(Notification.permission==='granted')scheduleAllNotifs();
+
+// ── INIT ──────────────────────────────────────────────────────────────
+document.getElementById('prev-btn').addEventListener('click', ()=>{viewDate.setDate(viewDate.getDate()-1);render();});
+document.getElementById('next-btn').addEventListener('click', ()=>{
+  const t=new Date();t.setHours(0,0,0,0);t.setDate(t.getDate()+1);
+  if(viewDate<t){viewDate.setDate(viewDate.getDate()+1);render();}
+});
+document.getElementById('reset-btn').addEventListener('click', ()=>{
+  if(confirm('Nulstil denne dag?')){saveDayData(dateKey(viewDate),{});render();}
+});
+
+if ('Notification' in window) {
+  if (Notification.permission==='default') document.getElementById('notif-bar').classList.add('show');
+  else if (Notification.permission==='granted') scheduleAllNotifs();
 }
-fetchPrayerTimes();render();
-setInterval(renderPrayers,60000);
+
+// Refresh prayer times at midnight
+const now = new Date();
+const msToMidnight = new Date(now.getFullYear(),now.getMonth(),now.getDate()+1) - now;
+setTimeout(() => { fetchPrayerTimes(); setInterval(fetchPrayerTimes, 86400000); }, msToMidnight);
+
+fetchPrayerTimes();
+render();
+setInterval(renderPrayers, 60000);
 </script>
 </body>
 </html>
